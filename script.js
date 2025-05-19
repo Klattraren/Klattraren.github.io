@@ -1,18 +1,39 @@
-// Select the video element
 const video = document.getElementById('video');
 
-// Function to start the camera stream
+// Start the camera stream
 async function startCamera() {
     try {
-        // Request access to the camera
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // Set the video source to the camera stream
         video.srcObject = stream;
+        startSendingFrames();
     } catch (error) {
         console.error('Error accessing the camera:', error);
-        alert('Could not access the camera. Please check your permissions.');
+        alert('Could not access the camera.');
     }
 }
 
-// Start the camera stream when the page loads
+// Capture and send frames to Python server
+function startSendingFrames() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    setInterval(() => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+            if (blob) {
+                const formData = new FormData();
+                formData.append('frame', blob, 'frame.jpg');
+
+                fetch('http://localhost:5000/process', {
+                    method: 'POST',
+                    body: formData
+                }).catch(err => console.error('Failed to send frame:', err));
+            }
+        }, 'image/jpeg');
+    }, 100); // Every 100ms
+}
+
 window.addEventListener('load', startCamera);
